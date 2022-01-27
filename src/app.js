@@ -48,8 +48,8 @@ template.innerHTML = `
     .wrapper { text-align: center }
   </style>
   <div class="wrapper">
-    <div class="dice"></div>
     <button class="roll"> Roll </button>
+    <div class="dice"></div>    
   </div>
 `
 
@@ -59,7 +59,28 @@ const renderDiceRoller = (diceString, elem) => {
     const rollButton = elem.querySelector(".roll");
     const dice = elem.querySelector(".dice");
 
-    rollButton.onclick = () => diceString.insertText(0, "A",);
+    rollButton.onclick = () => 
+	{
+        const len = diceString.getText().length;
+		switch(Math.floor(Math.random() * 2))
+		{
+			case 0:
+                const insertStart = Math.floor(Math.random() * len);
+                const insertLen = Math.floor(Math.random() * 32);
+                var insertText = "";
+                for(var i=0;i<insertLen;i++)
+                {
+                    insertText += String.fromCharCode(32 + Math.floor(Math.random() * 96));
+                }
+				diceString.insertText(insertStart, insertText);
+				break;
+			case 1:
+                const removeStart = Math.floor(Math.random() * len);
+                const removeLen = 1 + Math.floor(Math.random() * (len - removeStart - 1));
+				diceString.removeText(removeStart, removeStart+removeLen);
+				break;
+		}		
+	}
 
     // Get the current value of the shared data to update the view whenever it changes.
     const updateDice = () => {

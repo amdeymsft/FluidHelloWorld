@@ -14,6 +14,8 @@ const containerSchema = {
 };
 const root = document.getElementById("content");
 
+var intervalId = 0;
+
 const createNewDice = async () => {
     const { container } = await client.createContainer(containerSchema);
     container.initialObjects.diceString.insertText(0, "Hello World!");
@@ -36,6 +38,28 @@ async function start() {
     }
 }
 
+const performRandomOperation = (diceString) => {
+	const len = diceString.getText().length;
+	switch(Math.floor(Math.random() * 2))
+	{
+		case 0:
+			const insertStart = Math.floor(Math.random() * len);
+			const insertLen = Math.floor(Math.random() * 32);
+			var insertText = "";
+			for(var i=0;i<insertLen;i++)
+			{
+				insertText += String.fromCharCode(32 + Math.floor(Math.random() * 96));
+			}
+			diceString.insertText(insertStart, insertText);
+			break;
+		case 1:
+			const removeStart = Math.floor(Math.random() * len);
+			const removeLen = 1 + Math.floor(Math.random() * (len - removeStart - 1));
+			diceString.removeText(removeStart, removeStart+removeLen);
+			break;
+	}	
+}
+
 start().catch((error) => console.error(error));
 
 
@@ -48,7 +72,9 @@ template.innerHTML = `
     .wrapper { text-align: center }
   </style>
   <div class="wrapper">
-    <button class="roll"> Roll </button>
+    <button class="start"> Start </button>
+    <button class="stop"> Stop </button>
+	<button class="single"> Single </button>
     <div class="dice"></div>    
   </div>
 `
@@ -56,31 +82,27 @@ template.innerHTML = `
 const renderDiceRoller = (diceString, elem) => {
     elem.appendChild(template.content.cloneNode(true));
 
-    const rollButton = elem.querySelector(".roll");
+    const startButton = elem.querySelector(".start");
+    const stopButton = elem.querySelector(".stop");
+	const singleButton = elem.querySelector(".single");
     const dice = elem.querySelector(".dice");
 
-    rollButton.onclick = () => 
+    startButton.onclick = () => 
 	{
-        const len = diceString.getText().length;
-		switch(Math.floor(Math.random() * 2))
-		{
-			case 0:
-                const insertStart = Math.floor(Math.random() * len);
-                const insertLen = Math.floor(Math.random() * 32);
-                var insertText = "";
-                for(var i=0;i<insertLen;i++)
-                {
-                    insertText += String.fromCharCode(32 + Math.floor(Math.random() * 96));
-                }
-				diceString.insertText(insertStart, insertText);
-				break;
-			case 1:
-                const removeStart = Math.floor(Math.random() * len);
-                const removeLen = 1 + Math.floor(Math.random() * (len - removeStart - 1));
-				diceString.removeText(removeStart, removeStart+removeLen);
-				break;
-		}		
+	    intervalId = setInterval(() => {
+            performRandomOperation(diceString);
+        }, 50);
 	}
+	
+	singleButton.onclick = () => 
+	{
+		performRandomOperation(diceString);
+	}
+
+    stopButton.onclick = () => 
+    {
+        clearInterval(intervalId);
+    }
 
     // Get the current value of the shared data to update the view whenever it changes.
     const updateDice = () => {

@@ -14,7 +14,7 @@ const containerSchema = {
 };
 const root = document.getElementById("content");
 
-var intervalId = 0;
+var repeat = false;
 
 const createNewDice = async () => {
     const { container } = await client.createContainer(containerSchema);
@@ -38,26 +38,37 @@ async function start() {
     }
 }
 
-const performRandomOperation = (diceString) => {
+const performRandomOperation = (diceString, count, clientIdText,ops) => {
+	
+	if (count == 0)
+		return;
+	
 	const len = diceString.getText().length;
 	switch(Math.floor(Math.random() * 2))
 	{
 		case 0:
 			const insertStart = Math.floor(Math.random() * len);
-			const insertLen = Math.floor(Math.random() * 32);
+			const insertLen = 1 + Math.floor(Math.random() * 31);
 			var insertText = "";
 			for(var i=0;i<insertLen;i++)
 			{
-				insertText += String.fromCharCode(32 + Math.floor(Math.random() * 96));
-			}
-			diceString.insertText(insertStart, insertText);
+				insertText += String.fromCharCode(97 + Math.floor(Math.random() * 27));
+			}		
+
+            diceString.insertText(insertStart, insertText);
+
 			break;
 		case 1:
 			const removeStart = Math.floor(Math.random() * len);
 			const removeLen = 1 + Math.floor(Math.random() * (len - removeStart - 1));
-			diceString.removeText(removeStart, removeStart+removeLen);
+            const removeEnd = removeStart + removeLen;
+			
+            diceString.removeText(removeStart, removeEnd);
+
 			break;
-	}	
+	}
+
+	setTimeout(() => { performRandomOperation(diceString, count - 1, clientIdText, ops) }, Math.floor(Math.random() * 100));
 }
 
 start().catch((error) => console.error(error));
@@ -71,43 +82,96 @@ template.innerHTML = `
   <style>
     .wrapper { text-align: center }
   </style>
-  <div class="wrapper">
+  <div class="wrapper">    
+    <input type="text" class="clientId"></input>
+    <input type="text" class="count" value="1"></input>
     <button class="start"> Start </button>
     <button class="stop"> Stop </button>
 	<button class="single"> Single </button>
-    <div class="dice"></div>    
+    <button class="reset"> Reset </button>    
+    <button class="clear"> Clear </button>
+    <div class="dice"></div>
+    <br/>
+    <div class="ops"></div>
   </div>
 `
 
 const renderDiceRoller = (diceString, elem) => {
     elem.appendChild(template.content.cloneNode(true));
 
+    const clientIdText = elem.querySelector(".clientId");
+    const countText = elem.querySelector(".count");
     const startButton = elem.querySelector(".start");
     const stopButton = elem.querySelector(".stop");
 	const singleButton = elem.querySelector(".single");
+    const resetButton = elem.querySelector(".reset");
+    const clearButton = elem.querySelector(".clear");
     const dice = elem.querySelector(".dice");
+    const ops = elem.querySelector(".ops");
 
     startButton.onclick = () => 
 	{
-	    intervalId = setInterval(() => {
-            performRandomOperation(diceString);
-        }, 50);
+		repeat = true;
+	    performRandomOperation(diceString, parseInt(countText.value), clientIdText,ops);
 	}
 	
 	singleButton.onclick = () => 
 	{
-		performRandomOperation(diceString);
+		repeat = false;
+		performRandomOperation(diceString, 1, clientIdText,ops);
 	}
 
     stopButton.onclick = () => 
     {
-        clearInterval(intervalId);
+		repeat = false;
+    }
+
+    resetButton.onclick = () =>
+    {
+        var len = diceString.getText().length;
+        if(len>0)
+        {
+            diceString.removeText(0, len);
+            diceString.insertText(0, "Hello World!");
+        }        
+    }
+
+    clearButton.onclick = () =>
+    {
+        ops.innerHTML = '';
     }
 
     // Get the current value of the shared data to update the view whenever it changes.
-    const updateDice = () => {
+    const updateDice =  (event, target) => {
         const diceValue = diceString.getText();
-        dice.textContent = diceValue;
+        if (event!=null)
+        {
+            if(!event.isLocal)
+            {
+                ops.appendChild(document.createTextNode(Date.now() + ",mockNetwork.Receive("+clientIdText.value+",\""+event.opArgs.sequencedMessage.clientId+"\");"));
+                ops.appendChild(document.createElement("br"));
+            }
+            else
+            {                
+                switch(event.opArgs.op.type)
+                {
+                    case 0:
+                        ops.appendChild(document.createTextNode(Date.now() 
+                        + ",mockNetwork.Insert("+clientIdText.value+",new GlobalCp("+event.opArgs.op.pos1+"),\""+event.opArgs.op.seg+"\",null);mockNetwork.Send("+clientIdText.value+");mockNetwork.Receive("+clientIdText.value+","+clientIdText.value+");"));
+                        ops.appendChild(document.createElement("br"));
+                        break;
+                    case 1:
+                        ops.appendChild(document.createTextNode(Date.now() 
+                        + ",mockNetwork.Delete("+clientIdText.value+",new GlobalCp("+event.opArgs.op.pos1+"),new GlobalCp("+event.opArgs.op.pos2+"));mockNetwork.Send("+clientIdText.value+");mockNetwork.Receive("+clientIdText.value+","+clientIdText.value+");"));
+                        ops.appendChild(document.createElement("br"));
+                        break
+                }
+            }
+        }        
+        dice.textContent = diceValue;        
+
+        ops.appendChild(document.createTextNode((Date.now()+1) + ",Assert.AreEqual(\""+diceValue+"\", mockNetwork.ReadClientContent("+clientIdText.value+"));"));
+        ops.appendChild(document.createElement("br"));      
     };
     updateDice();
 
